@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>拖拽式HTML编辑器</title>
+  <!-- Font Awesome 6 CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css"/>
+  <style>
+body {
+  background: #181c22;
+  color: #e6eaf3;
+  font-family: "Segoe UI", "Arial", "PingFang SC", "Microsoft YaHei", sans-serif;
+  margin: 0;
+  padding: 0;
+}
+.editor-container {
+  width: 98vw;
+  max-width: 1440px;
+  margin: 24px auto 0 auto;
+  background: #222733;
+  border-radius: 14px;
+  box-shadow: 0 4px 24px #0008;
+  min-height: 720px;
+  display: flex;
+  gap: 0;
+}
+.sidebar {
+  background: #23283a;
+  border-radius: 14px 0 0 14px;
+  width: 120px;
+  min-width: 90px;
+  max-width: 140px;
+  padding: 22px 0 22px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 2px 0 12px #0003;
+}
+.sidebar-title {
+  font-size: 16px;
+  color: #5faaf6;
+  font-weight: bold;
+  margin-bottom: 12px;
+  letter-spacing: 1px;
+}
+.tool-btn {
+  background: #292e42;
+  color: #a5b8e3;
+  border: none;
+  border-radius: 8px;
+  padding: 14px 10px;
+  font-size: 20px;
+  cursor: grab;
+  margin-bottom: 10px;
+  width: 86px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.18s, color 0.18s, box-shadow 0.18s;
+  box-shadow: 0 0 0 #0000;
+}
+.tool-btn span {
+  font-size: 13px;
+}
+.tool-btn:hover, .tool-btn:focus {
+  background: #3473c6;
+  color: #fff;
+  box-shadow: 0 2px 8px #3182ce33;
+}
+.main-area {
+  display: flex;
+  flex: 1;
+  gap: 0;
+  align-items: stretch;
+  width: 100%;
+}
+.editor-page {
+  flex: 2;
+  min-width: 0;
+  min-height: 600px;
+  background: #23283a;
+  border: 2px solid #2d3240;
+  padding: 26px 18px;
+  position: relative;
+  transition: border-color 0.22s, box-shadow 0.22s;
+  box-shadow: 0 1px 16px #0004;
+  overflow: auto;
+  background-image: linear-gradient(90deg, #283045 1px, transparent 1px), 
+    linear-gradient(180deg, #283045 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+.editor-page.dragover {
+  border-color: #5faaf6;
+  background: #20283e;
+  box-shadow: 0 2px 18px #5faaf611;
+}
+.drop-hint {
+  color: #6b7ca5;
+  position: absolute;
+  left: 43%;
+  top: 45%;
+  font-size: 20px;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  opacity: 0.85;
+  font-weight: 500;
+}
+.right-panel {
+  width: 340px;
+  min-width: 240px;
+  max-width: 400px;
+  background: #282d3b;
+  border-radius: 0 14px 14px 0;
+  box-shadow: -2px 0 12px #0003;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+.panel-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid #283045;
+  background: #23283a;
+  border-radius: 0 14px 0 0;
+}
+.panel-tab {
+  flex: 1;
+  background: none;
+  color: #a5b8e3;
+  border: none;
+  font-size: 15px;
+  font-weight: 500;
+  padding: 16px 0 13px 0;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s;
+  border-bottom: 2px solid transparent;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  justify-content: center;
+}
+.panel-tab.active {
+  background: #282d3b;
+  color: #5faaf6;
+  border-bottom: 2px solid #5faaf6;
+}
+.panel-content {
+  flex: 1;
+  padding: 18px 21px 18px 21px;
+  background: #282d3b;
+  border-radius: 0 0 14px 0;
+  min-height: 0;
+  max-height: 100%;
+  overflow: auto;
+  position: relative;
+}
+.panel-page {
+  display: none;
+  min-height: 200px;
+}
+.panel-page.active {
+  display: block;
+}
+.empty-props {
+  color: #6b7ca5;
+  font-size: 17px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 18px;
+}
+#props-content label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  color: #5faaf6;
+  font-size: 15px;
+}
+#props-content input, #props-content textarea {
+  width: 100%;
+  margin-bottom: 14px;
+  padding: 8px;
+  border: 1px solid #2d3240;
+  border-radius: 5px;
+  font-size: 16px;
+  background: #23283a;
+  color: #d0d8ed;
+  transition: border-color 0.18s;
+}
+#props-content input:focus, #props-content textarea:focus {
+  border-color: #5faaf6;
+  outline: none;
+}
+#props-content textarea {
+  min-height: 44px;
+  max-height: 180px;
+  font-family: inherit;
+}
+#delete-el-btn {
+  background: #e53e3e;
+  color: #fff;
+  margin-top: 10px;
+  border: none;
+  border-radius: 5px;
+  padding: 7px 18px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 0.18s;
+  box-shadow: 0 1px 3px #e53e3e33;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+#delete-el-btn:hover {
+  background: #a71818;
+}
+.selected-element {
+  outline: none !important;
+  box-shadow: 0 0 0 3px #5faaf644, 0 2px 12px #5faaf611;
+  border-radius: 7px;
+  z-index: 2;
+  position: relative;
+  transition: box-shadow 0.18s;
+}
+.editable-item {
+  margin: 12px 0;
+  cursor: pointer;
+  transition: box-shadow 0.18s;
+}
+.editable-item:hover:not(.selected-element) {
+  box-shadow: 0 0 0 2px #5faaf622;
+}
+.source-compare {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.source-block {
+  background: #23283a;
+  border-radius: 7px;
+  padding: 10px 13px;
+  font-size: 14px;
+  color: #9fc4ee;
+  box-shadow: 0 1px 8px #0004;
+  word-break: break-all;
+}
+.source-title {
+  color: #5faaf6;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+pre {
+  font-family: "Fira Mono", "Consolas", "Menlo", monospace;
+  font-size: 13px;
+  background: none;
+  color: #d0d8ed;
+  padding: 0;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.editor-footer {
+  text-align: center;
+  color: #6b7ca5;
+  font-size: 16px;
+  margin: 24px 0 0 0;
+  letter-spacing: 0.5px;
+  padding: 6px 0;
+  background: none;
+}
+@media (max-width: 900px) {
+  .editor-container {
+    flex-direction: column;
+    gap: 0;
+  }
+  .main-area {
+    flex-direction: column;
+    gap: 0;
+  }
+  .sidebar {
+    flex-direction: row;
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    border-radius: 14px 14px 0 0;
+    box-shadow: 0 2px 12px #0003;
+    padding: 14px 0;
+    justify-content: center;
+  }
+  .editor-page, .right-panel {
+    border-radius: 0 0 14px 14px;
+    min-width: 0;
+    width: 100%;
+  }
+  .right-panel {
+    border-radius: 0 0 14px 14px;
+    min-width: 0;
+    max-width: none;
+    width: 100%;
+  }
+}
+  </style>
+</head>
+<body>
+  <div class="editor-container">
+    <aside class="sidebar">
+      <div class="sidebar-title">工具栏</div>
+      <button class="tool-btn" title="标题" data-tag="h1"><i class="fa-solid fa-heading"></i><span>标题</span></button>
+      <button class="tool-btn" title="段落" data-tag="p"><i class="fa-solid fa-paragraph"></i><span>段落</span></button>
+      <button class="tool-btn" title="图片" data-tag="img"><i class="fa-regular fa-image"></i><span>图片</span></button>
+      <button class="tool-btn" title="按钮" data-tag="button"><i class="fa-regular fa-square"></i><span>按钮</span></button>
+      <button class="tool-btn" id="undo-btn" title="撤销"><i class="fa-solid fa-rotate-left"></i><span>撤销</span></button>
+    </aside>
+    <main class="main-area">
+      <section class="editor-page" id="editor-page" contenteditable="false">
+        <div class="drop-hint"><i class="fa-solid fa-cloud-arrow-up"></i> 拖拽左侧工具到此处</div>
+      </section>
+      <section class="right-panel">
+        <nav class="panel-tabs">
+          <button class="panel-tab active" data-tab="props"><i class="fa-solid fa-sliders"></i> 属性编辑</button>
+          <button class="panel-tab" data-tab="source"><i class="fa-solid fa-code"></i> HTML对比</button>
+        </nav>
+        <div class="panel-content">
+          <div class="panel-page panel-props active">
+            <div id="props-content">
+              <div class="empty-props"><i class="fa-regular fa-hand-pointer"></i> 选中元素即可编辑属性。</div>
+            </div>
+          </div>
+          <div class="panel-page panel-source">
+            <div class="source-compare">
+              <div class="source-block">
+                <div class="source-title"><i class="fa-solid fa-file-code"></i> 编辑器页HTML</div>
+                <pre id="editor-html"></pre>
+              </div>
+              <div class="source-block">
+                <div class="source-title"><i class="fa-solid fa-object-group"></i> 选中元素HTML</div>
+                <pre id="selected-html"></pre>
+              </div>
+              <div class="source-block">
+                <div class="source-title"><i class="fa-solid fa-brush"></i> 选中元素style</div>
+                <pre id="selected-style"></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <footer class="editor-footer">
+    拖拽式HTML编辑器 · Dark+ 专业版UI · Copilot设计
+  </footer>
+  <script>
+const toolbar = document.querySelector('.sidebar');
+const editorPage = document.getElementById('editor-page');
+const propsContent = document.getElementById('props-content');
+let selectedEl = null;
+let undoStack = [];
+
+// 工具栏按钮拖拽
+toolbar.querySelectorAll('button[data-tag]').forEach(btn => {
+  btn.draggable = true;
+  btn.addEventListener('dragstart', function(e) {
+    e.dataTransfer.setData('tag', btn.dataset.tag);
+    e.dataTransfer.effectAllowed = 'copy';
+  });
+});
+
+// 编辑器页拖拽逻辑
+editorPage.addEventListener('dragover', function(e) {
+  e.preventDefault();
+  editorPage.classList.add('dragover');
+});
+editorPage.addEventListener('dragleave', function(e) {
+  editorPage.classList.remove('dragover');
+});
+editorPage.addEventListener('drop', function(e) {
+  e.preventDefault();
+  editorPage.classList.remove('dragover');
+  const tag = e.dataTransfer.getData('tag');
+  if (tag) {
+    pushUndo();
+    const el = createElement(tag);
+    editorPage.appendChild(el);
+    hideDropHint();
+    setTimeout(() => {
+      setSelectedEl(el);
+      updateSourceCompare();
+    }, 220);
+  }
+  updateSourceCompare();
+});
+
+function createElement(tag) {
+  let el;
+  switch (tag) {
+    case 'h1':
+      el = document.createElement('h1');
+      el.textContent = '主标题';
+      el.style.fontSize = "2em";
+      el.style.fontWeight = "600";
+      el.style.margin = "0.5em 0";
+      el.style.color = "#5faaf6";
+      break;
+    case 'p':
+      el = document.createElement('p');
+      el.textContent = '这是一个段落。';
+      el.style.fontSize = "1em";
+      el.style.margin = "0.5em 0";
+      el.style.color = "#d0d8ed";
+      break;
+    case 'img':
+      el = document.createElement('img');
+      el.src = 'https://placekitten.com/260/140';
+      el.alt = '图片';
+      el.style.maxWidth = "96%";
+      el.style.borderRadius = "7px";
+      el.style.boxShadow = "0 2px 8px #0001";
+      el.style.display = "block";
+      el.style.margin = "0.5em 0";
+      break;
+    case 'button':
+      el = document.createElement('button');
+      el.textContent = '按钮';
+      el.style.padding = "10px 30px";
+      el.style.background = "#5faaf6";
+      el.style.color = "#fff";
+      el.style.border = "none";
+      el.style.borderRadius = "5px";
+      el.style.fontSize = "1em";
+      el.style.cursor = "pointer";
+      el.style.margin = "0.5em 0";
+      el.style.boxShadow = "0 1px 3px #3182ce33";
+      el.addEventListener('mouseover', () => {
+        el.style.background = "#3473c6";
+      });
+      el.addEventListener('mouseout', () => {
+        el.style.background = "#5faaf6";
+      });
+      break;
+    default:
+      el = document.createElement('div');
+      el.textContent = tag;
+  }
+  el.setAttribute('draggable', 'true');
+  el.classList.add('editable-item');
+  el.addEventListener('click', selectElementHandler);
+  el.addEventListener('dragstart', dragMoveStart);
+  el.addEventListener('dragend', dragMoveEnd);
+  return el;
+}
+
+function hideDropHint() {
+  const hint = editorPage.querySelector('.drop-hint');
+  if (hint) hint.style.display = 'none';
+}
+
+// 支持元素拖动排序
+let dragSrcEl = null;
+function dragMoveStart(e) {
+  dragSrcEl = this;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', '');
+  setTimeout(() => {
+    this.style.visibility = 'hidden';
+  }, 0);
+}
+function dragMoveEnd(e) {
+  this.style.visibility = 'visible';
+}
+
+// 元素拖动排序
+editorPage.addEventListener('dragover', function(e) {
+  e.preventDefault();
+  const afterElement = getDragAfterElement(editorPage, e.clientY);
+  if (dragSrcEl && afterElement && afterElement !== dragSrcEl) {
+    editorPage.insertBefore(dragSrcEl, afterElement);
+    updateSourceCompare();
+  }
+});
+
+function getDragAfterElement(container, y) {
+  const els = [...container.querySelectorAll('.editable-item:not([style*="visibility: hidden"])')];
+  return els.find(el => {
+    const rect = el.getBoundingClientRect();
+    return y < rect.top + rect.height / 2;
+  });
+}
+
+// 元素选中与属性编辑器
+function selectElementHandler(e) {
+  e.stopPropagation();
+  setSelectedEl(this);
+  updateSourceCompare();
+}
+editorPage.addEventListener('click', function(e) {
+  if (e.target === editorPage) setSelectedEl(null);
+  updateSourceCompare();
+});
+function setSelectedEl(el) {
+  if (selectedEl) selectedEl.classList.remove('selected-element');
+  selectedEl = el;
+  if (selectedEl) {
+    selectedEl.classList.add('selected-element');
+    showProperties(selectedEl);
+  } else {
+    propsContent.innerHTML = `<div class="empty-props"><i class="fa-regular fa-hand-pointer"></i> 选中元素即可编辑属性。</div>`;
+  }
+  updateSourceCompare();
+}
+
+// 属性编辑器内容
+function showProperties(el) {
+  let html = '';
+  html += `<label>类型: <b>${el.tagName}</b></label>`;
+  // 通用属性
+  if (el.tagName === 'H1' || el.tagName === 'P' || el.tagName === 'BUTTON') {
+    html += `<label>文本内容</label>
+      <input type="text" id="prop-text" value="${el.textContent.replace(/"/g, '&quot;')}" />`;
+  }
+  if (el.tagName === 'IMG') {
+    html += `<label>图片地址(src)</label>
+      <input type="text" id="prop-src" value="${el.src}" />
+    <label>替代文字(alt)</label>
+      <input type="text" id="prop-alt" value="${el.alt}" />`;
+  }
+  html += `<label>样式(style)</label>
+    <textarea id="prop-style">${el.getAttribute('style') || ''}</textarea>
+    <button id="delete-el-btn"><i class="fa-solid fa-trash"></i> 删除元素</button>`;
+  propsContent.innerHTML = html;
+
+  // 属性绑定
+  if (el.tagName === 'H1' || el.tagName === 'P' || el.tagName === 'BUTTON') {
+    propsContent.querySelector('#prop-text').addEventListener('input', function() {
+      el.textContent = this.value;
+      pushUndo();
+      updateSourceCompare();
+    });
+  }
+  if (el.tagName === 'IMG') {
+    propsContent.querySelector('#prop-src').addEventListener('input', function() {
+      el.src = this.value;
+      pushUndo();
+      updateSourceCompare();
+    });
+    propsContent.querySelector('#prop-alt').addEventListener('input', function() {
+      el.alt = this.value;
+      pushUndo();
+      updateSourceCompare();
+    });
+  }
+  propsContent.querySelector('#prop-style').addEventListener('input', function() {
+    el.setAttribute('style', this.value);
+    pushUndo();
+    updateSourceCompare();
+  });
+  propsContent.querySelector('#delete-el-btn').addEventListener('click', function() {
+    pushUndo();
+    el.remove();
+    setSelectedEl(null);
+    if (editorPage.querySelectorAll('.editable-item').length === 0) {
+      const hint = editorPage.querySelector('.drop-hint');
+      if (hint) hint.style.display = 'flex';
+    }
+    updateSourceCompare();
+  });
+}
+
+// 撤销功能
+function pushUndo() {
+  undoStack.push(editorPage.innerHTML);
+  if (undoStack.length > 30) undoStack.shift();
+}
+document.getElementById('undo-btn').addEventListener('click', function() {
+  if (undoStack.length > 0) {
+    editorPage.innerHTML = undoStack.pop();
+    // 重新绑定事件
+    editorPage.querySelectorAll('.editable-item').forEach(el => {
+      el.addEventListener('click', selectElementHandler);
+      el.addEventListener('dragstart', dragMoveStart);
+      el.addEventListener('dragend', dragMoveEnd);
+    });
+    setSelectedEl(null);
+    hideDropHint();
+    updateSourceCompare();
+  }
+});
+
+// Tab切换
+document.querySelectorAll('.panel-tab').forEach(tab => {
+  tab.addEventListener('click', function() {
+    document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel-page').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    if (tab.dataset.tab === 'props') {
+      document.querySelector('.panel-props').classList.add('active');
+    } else {
+      document.querySelector('.panel-source').classList.add('active');
+      updateSourceCompare();
+    }
+  });
+});
+
+function updateSourceCompare() {
+  // 编辑器整体HTML
+  document.getElementById('editor-html').textContent =
+    editorPage.innerHTML.replace(/></g, '>\n<').trim();
+  // 选中元素HTML
+  document.getElementById('selected-html').textContent =
+    selectedEl ? selectedEl.outerHTML.replace(/></g, '>\n<').trim() : '(未选中)';
+  // 选中元素style
+  document.getElementById('selected-style').textContent =
+    selectedEl ? (selectedEl.getAttribute('style') || '(无)') : '(未选中)';
+}
+
+// 初始化
+editorPage.querySelector('.drop-hint').style.display = 'flex';
+updateSourceCompare();
+  </script>
+</body>
+</html>
