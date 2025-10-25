@@ -182,7 +182,7 @@ body {
   color: #5faaf6;
   font-size: 15px;
 }
-#props-content input, #props-content textarea {
+#props-content input, #props-content textarea, #props-content select {
   width: 100%;
   margin-bottom: 14px;
   padding: 8px;
@@ -193,7 +193,7 @@ body {
   color: #d0d8ed;
   transition: border-color 0.18s;
 }
-#props-content input:focus, #props-content textarea:focus {
+#props-content input:focus, #props-content textarea:focus, #props-content select:focus {
   border-color: #5faaf6;
   outline: none;
 }
@@ -315,10 +315,17 @@ pre {
   <div class="editor-container">
     <aside class="sidebar">
       <div class="sidebar-title">工具栏</div>
-      <button class="tool-btn" title="标题" data-tag="h1"><i class="fa-solid fa-heading"></i><span>标题</span></button>
+      <button class="tool-btn" title="标题" data-tag="heading"><i class="fa-solid fa-heading"></i><span>标题(h1~h6)</span></button>
       <button class="tool-btn" title="段落" data-tag="p"><i class="fa-solid fa-paragraph"></i><span>段落</span></button>
       <button class="tool-btn" title="图片" data-tag="img"><i class="fa-regular fa-image"></i><span>图片</span></button>
       <button class="tool-btn" title="按钮" data-tag="button"><i class="fa-regular fa-square"></i><span>按钮</span></button>
+      <button class="tool-btn" title="列表" data-tag="ul"><i class="fa-solid fa-list"></i><span>列表</span></button>
+      <button class="tool-btn" title="链接" data-tag="a"><i class="fa-solid fa-link"></i><span>链接</span></button>
+      <button class="tool-btn" title="分隔线" data-tag="hr"><i class="fa-solid fa-minus"></i><span>分隔线</span></button>
+      <button class="tool-btn" title="容器" data-tag="div"><i class="fa-regular fa-square"></i><span>容器</span></button>
+      <button class="tool-btn" title="内联" data-tag="span"><i class="fa-solid fa-font"></i><span>内联</span></button>
+      <button class="tool-btn" id="import-btn" title="导入"><i class="fa-solid fa-upload"></i><span>导入</span></button>
+      <button class="tool-btn" id="export-btn" title="导出"><i class="fa-solid fa-download"></i><span>导出</span></button>
       <button class="tool-btn" id="undo-btn" title="撤销"><i class="fa-solid fa-rotate-left"></i><span>撤销</span></button>
     </aside>
     <main class="main-area">
@@ -390,7 +397,14 @@ editorPage.addEventListener('drop', function(e) {
   if (tag) {
     pushUndo();
     const el = createElement(tag);
-    editorPage.appendChild(el);
+    // 支持嵌套：如果鼠标在某个editable-item上方，则插入其内部
+    const target = document.elementFromPoint(e.clientX, e.clientY);
+    const parentEl = target && target.closest('.editable-item');
+    if (parentEl && parentEl !== el && !parentEl.contains(el)) {
+      parentEl.appendChild(el);
+    } else {
+      editorPage.appendChild(el);
+    }
     hideDropHint();
     setTimeout(() => {
       setSelectedEl(el);
@@ -403,13 +417,14 @@ editorPage.addEventListener('drop', function(e) {
 function createElement(tag) {
   let el;
   switch (tag) {
-    case 'h1':
+    case 'heading':
       el = document.createElement('h1');
       el.textContent = '主标题';
       el.style.fontSize = "2em";
       el.style.fontWeight = "600";
       el.style.margin = "0.5em 0";
       el.style.color = "#5faaf6";
+      el.dataset.headingLevel = '1';
       break;
     case 'p':
       el = document.createElement('p');
@@ -447,6 +462,33 @@ function createElement(tag) {
         el.style.background = "#5faaf6";
       });
       break;
+    case 'ul':
+      el = document.createElement('ul');
+      el.innerHTML = '<li>列表项 1</li><li>列表项 2</li>';
+      el.style.margin = "0.5em 0";
+      break;
+    case 'a':
+      el = document.createElement('a');
+      el.href = "#";
+      el.textContent = "链接";
+      el.style.color = "#5faaf6";
+      el.style.textDecoration = "underline";
+      break;
+    case 'hr':
+      el = document.createElement('hr');
+      el.style.margin = "0.5em 0";
+      break;
+    case 'div':
+      el = document.createElement('div');
+      el.textContent = "容器";
+      el.style.background = "#292e42";
+      el.style.padding = "12px";
+      el.style.borderRadius = "6px";
+      break;
+    case 'span':
+      el = document.createElement('span');
+      el.textContent = "内联文本";
+      break;
     default:
       el = document.createElement('div');
       el.textContent = tag;
@@ -478,12 +520,20 @@ function dragMoveEnd(e) {
   this.style.visibility = 'visible';
 }
 
-// 元素拖动排序
+// 元素拖动排序及嵌套支持
 editorPage.addEventListener('dragover', function(e) {
   e.preventDefault();
+  editorPage.classList.add('dragover');
   const afterElement = getDragAfterElement(editorPage, e.clientY);
-  if (dragSrcEl && afterElement && afterElement !== dragSrcEl) {
+  if (dragSrcEl && afterElement && afterElement !== dragSrcEl && !afterElement.contains(dragSrcEl)) {
     editorPage.insertBefore(dragSrcEl, afterElement);
+    updateSourceCompare();
+  }
+  // 支持嵌套拖入
+  const target = document.elementFromPoint(e.clientX, e.clientY);
+  const parentEl = target && target.closest('.editable-item');
+  if (dragSrcEl && parentEl && parentEl !== dragSrcEl && !parentEl.contains(dragSrcEl)) {
+    parentEl.appendChild(dragSrcEl);
     updateSourceCompare();
   }
 });
@@ -522,8 +572,15 @@ function setSelectedEl(el) {
 function showProperties(el) {
   let html = '';
   html += `<label>类型: <b>${el.tagName}</b></label>`;
+  // 标题级别切换
+  if (el.tagName.match(/^H[1-6]$/)) {
+    html += `<label>标题级别</label>
+      <select id="prop-heading-level">
+        ${[1,2,3,4,5,6].map(i => `<option value="${i}"${el.tagName=='H'+i?' selected':''}>H${i}</option>`).join('')}
+      </select>`;
+  }
   // 通用属性
-  if (el.tagName === 'H1' || el.tagName === 'P' || el.tagName === 'BUTTON') {
+  if (el.tagName.match(/^H[1-6]$/) || el.tagName === 'P' || el.tagName === 'BUTTON' || el.tagName === 'DIV' || el.tagName === 'SPAN' || el.tagName === 'A') {
     html += `<label>文本内容</label>
       <input type="text" id="prop-text" value="${el.textContent.replace(/"/g, '&quot;')}" />`;
   }
@@ -533,13 +590,21 @@ function showProperties(el) {
     <label>替代文字(alt)</label>
       <input type="text" id="prop-alt" value="${el.alt}" />`;
   }
+  if (el.tagName === 'A') {
+    html += `<label>链接地址(href)</label>
+      <input type="text" id="prop-href" value="${el.href}" />`;
+  }
+  if (el.tagName === 'UL') {
+    html += `<label>列表内容<li>用英文逗号分隔</label>
+      <input type="text" id="prop-ul" value="${[...el.querySelectorAll('li')].map(li=>li.textContent).join(',')}" />`;
+  }
   html += `<label>样式(style)</label>
     <textarea id="prop-style">${el.getAttribute('style') || ''}</textarea>
     <button id="delete-el-btn"><i class="fa-solid fa-trash"></i> 删除元素</button>`;
   propsContent.innerHTML = html;
 
   // 属性绑定
-  if (el.tagName === 'H1' || el.tagName === 'P' || el.tagName === 'BUTTON') {
+  if (el.tagName.match(/^H[1-6]$/) || el.tagName === 'P' || el.tagName === 'BUTTON' || el.tagName === 'DIV' || el.tagName === 'SPAN' || el.tagName === 'A') {
     propsContent.querySelector('#prop-text').addEventListener('input', function() {
       el.textContent = this.value;
       pushUndo();
@@ -554,6 +619,35 @@ function showProperties(el) {
     });
     propsContent.querySelector('#prop-alt').addEventListener('input', function() {
       el.alt = this.value;
+      pushUndo();
+      updateSourceCompare();
+    });
+  }
+  if (el.tagName === 'A') {
+    propsContent.querySelector('#prop-href').addEventListener('input', function() {
+      el.href = this.value;
+      pushUndo();
+      updateSourceCompare();
+    });
+  }
+  // 列表内容
+  if (el.tagName === 'UL') {
+    propsContent.querySelector('#prop-ul').addEventListener('input', function() {
+      el.innerHTML = this.value.split(',').map(item => `<li>${item.trim()}</li>`).join('');
+      pushUndo();
+      updateSourceCompare();
+    });
+  }
+  // 标题级别切换
+  if (el.tagName.match(/^H[1-6]$/)) {
+    propsContent.querySelector('#prop-heading-level').addEventListener('change', function() {
+      const newLevel = this.value;
+      const newEl = document.createElement('h'+newLevel);
+      newEl.textContent = el.textContent;
+      newEl.setAttribute('style', el.getAttribute('style'));
+      newEl.className = el.className;
+      el.replaceWith(newEl);
+      setSelectedEl(newEl);
       pushUndo();
       updateSourceCompare();
     });
@@ -622,7 +716,46 @@ function updateSourceCompare() {
     selectedEl ? (selectedEl.getAttribute('style') || '(无)') : '(未选中)';
 }
 
-// 初始化
+// 导出功能
+document.getElementById('export-btn').addEventListener('click', function() {
+  const html = editorPage.innerHTML;
+  const blob = new Blob([html], {type:"text/html"});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = "editor.html";
+  a.click();
+});
+
+// 导入功能
+document.getElementById('import-btn').addEventListener('click', function() {
+  const input = document.createElement('textarea');
+  input.placeholder = "粘贴HTML代码…";
+  input.style.width = "100%";
+  input.style.minHeight = "120px";
+  input.style.margin = "12px 0";
+  input.style.fontSize = "15px";
+  input.style.background = "#23283a";
+  input.style.color = "#d0d8ed";
+  input.style.borderRadius = "6px";
+  propsContent.innerHTML = '<label>导入HTML</label>';
+  propsContent.appendChild(input);
+  input.addEventListener('blur', function() {
+    if (input.value.trim()) {
+      editorPage.innerHTML = input.value;
+      // 重新绑定事件
+      editorPage.querySelectorAll('.editable-item').forEach(el => {
+        el.addEventListener('click', selectElementHandler);
+        el.addEventListener('dragstart', dragMoveStart);
+        el.addEventListener('dragend', dragMoveEnd);
+      });
+      setSelectedEl(null);
+      hideDropHint();
+      updateSourceCompare();
+    }
+  });
+  input.focus();
+});
+
 editorPage.querySelector('.drop-hint').style.display = 'flex';
 updateSourceCompare();
   </script>
