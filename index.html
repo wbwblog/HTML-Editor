@@ -366,7 +366,7 @@ pre {
   <footer class="editor-footer">
     拖拽式HTML编辑器 · Dark+ 专业版UI · Copilot设计
   </footer>
-  <script>
+<script>
 const toolbar = document.querySelector('.sidebar');
 const editorPage = document.getElementById('editor-page');
 const propsContent = document.getElementById('props-content');
@@ -386,6 +386,14 @@ toolbar.querySelectorAll('button[data-tag]').forEach(btn => {
 editorPage.addEventListener('dragover', function(e) {
   e.preventDefault();
   editorPage.classList.add('dragover');
+  // 只在 editorPage 上排序
+  if (dragSrcEl) {
+    const afterElement = getDragAfterElement(editorPage, e.clientY);
+    if (afterElement && afterElement !== dragSrcEl && !afterElement.contains(dragSrcEl)) {
+      editorPage.insertBefore(dragSrcEl, afterElement);
+      updateSourceCompare();
+    }
+  }
 });
 editorPage.addEventListener('dragleave', function(e) {
   editorPage.classList.remove('dragover');
@@ -410,6 +418,12 @@ editorPage.addEventListener('drop', function(e) {
       setSelectedEl(el);
       updateSourceCompare();
     }, 220);
+  } else if (dragSrcEl) {
+    // 拖出嵌套支持：鼠标在editorPage上时，将元素移动到editorPage
+    if (dragSrcEl.parentElement !== editorPage) {
+      editorPage.appendChild(dragSrcEl);
+      updateSourceCompare();
+    }
   }
   updateSourceCompare();
 });
